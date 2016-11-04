@@ -3,5 +3,6 @@ package main
 import "clipper"
 
 func main() {
-	clipper.StartServer()
+	m := clipper.NewMaster()
+	m.StartUp()
 }
