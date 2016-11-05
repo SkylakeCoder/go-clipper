@@ -29,7 +29,9 @@ func init() {
 }
 
 func NewMaster() *master {
-	return &master{}
+	return &master{
+		info: make(map[net.Conn]clipperInfo),
+	}
 }
 
 func (m *master) StartUp() {
@@ -48,31 +50,35 @@ func (m *master) StartUp() {
 }
 
 func (m *master) handleConnection(c net.Conn) {
-	msgIDBuf := make([]byte, 1)
 	msgLenBuf := make([]byte, 4)
 	for {
-		_, err := c.Read(msgIDBuf)
-		_, err = c.Read(msgLenBuf)
+		_, err := c.Read(msgLenBuf)
+		bytes := make([]byte, binary.LittleEndian.Uint32(msgLenBuf))
+		_, err = io.ReadFull(c, bytes)
 		if err == io.EOF {
 			break
 		} else if err != nil {
 			log.Fatalln(err)
 		}
-		msgLen := binary.LittleEndian.Uint32(msgLenBuf)
-		switch msgType(msgIDBuf[0]) {
+		req := commonReq{}
+		err = json.Unmarshal(bytes, &req)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		switch msgType(req.MsgID) {
 		case MSG_REGISTER:
-			m.handleMsgRegister(c, msgLen)
+			m.handleMsgRegister(c, bytes)
 		case MSG_SET_CLIPPER_INFO:
-			m.handleMsgSetClipperInfo(c, msgLen)
+			m.handleMsgSetClipperInfo(c, bytes)
 		case MSG_GET_CLIPPER_INFO:
-			m.handleMsgGetClipperInfo(c, msgLen)
+			m.handleMsgGetClipperInfo(c, bytes)
 		default:
-			log.Fatalln("error msg type...", msgIDBuf[0])
+			log.Fatalln("error msg type...", req.MsgID)
 		}
 	}
 }
 
-func (m *master) handleMsgRegister(c net.Conn, msgLen uint32) {
+func (m *master) handleMsgRegister(c net.Conn, bytes []byte) {
 	m.mutex.Lock()
 	exist := false
 	for _, v := range m.connections {
@@ -87,21 +93,18 @@ func (m *master) handleMsgRegister(c net.Conn, msgLen uint32) {
 	m.mutex.Unlock()
 }
 
-func (m *master) handleMsgSetClipperInfo(c net.Conn, msgLen uint32) {
-	buf := make([]byte, msgLen)
-	_, err := c.Read(buf)
-	if err != nil {
-		log.Fatalln(err)
-	}
+func (m *master) handleMsgSetClipperInfo(c net.Conn, bytes []byte) {
+	req := reqSetClipperInfo{}
+	json.Unmarshal(bytes, &req)
 	m.mutex.Lock()
 	m.info[c] = clipperInfo{
-		path: string(buf),
+		path: req.Data,
 		time: time.Since(_startTime).Seconds(),
 	}
 	m.mutex.Unlock()
 }
 
-func (m *master) handleMsgGetClipperInfo(conn net.Conn, msgLen uint32) {
+func (m *master) handleMsgGetClipperInfo(conn net.Conn, bytes []byte) {
 	var tempTime float64
 	path := ""
 	addr := ""
@@ -112,9 +115,9 @@ func (m *master) handleMsgGetClipperInfo(conn net.Conn, msgLen uint32) {
 			addr = c.RemoteAddr().String()
 		}
 	}
-	bytes, _ := json.Marshal(&respGetClipperInfo{
-		path: path,
-		addr: addr,
+	respBytes, _ := json.Marshal(&respGetClipperInfo{
+		Path: path,
+		Addr: addr,
 	})
-	conn.Write(bytes)
+	conn.Write(respBytes)
 }
