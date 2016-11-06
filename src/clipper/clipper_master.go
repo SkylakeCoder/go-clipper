@@ -65,6 +65,7 @@ func (m *master) handleConnection(c net.Conn) {
 		if err != nil {
 			log.Fatalln(err)
 		}
+		log.Println("master: msgID=", req.MsgID)
 		switch msgType(req.MsgID) {
 		case MSG_REGISTER:
 			m.handleMsgRegister(c, bytes)
@@ -73,7 +74,7 @@ func (m *master) handleConnection(c net.Conn) {
 		case MSG_GET_CLIPPER_INFO:
 			m.handleMsgGetClipperInfo(c, bytes)
 		default:
-			log.Fatalln("error msg type...", req.MsgID)
+			log.Fatalln("master: error msg type...", req.MsgID)
 		}
 	}
 }

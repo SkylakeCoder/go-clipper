@@ -3,37 +3,83 @@ package clipper
 import (
 	"net"
 	"log"
+	"encoding/binary"
 	"io"
+	"encoding/json"
+	"io/ioutil"
 )
 
-func StartServer() {
-	l, err := net.Listen("tcp", "localhost:8686")
+type server struct {
+	connToMaster net.Conn
+}
+
+func NewServer() *server {
+	return &server{}
+}
+
+func (s *server) StartUp() {
+	s.connectToMaster()
+	s.startServe()
+}
+
+func (s *server) connectToMaster() {
+	var err error
+	s.connToMaster, err = net.Dial("tcp", ":8686")
 	if err != nil {
-		log.Fatalln("listen error...", err)
+		log.Fatalln(err)
+	}
+	sendRegisterReq(s.connToMaster)
+}
+
+func (s *server) startServe() {
+	l, err := net.Listen("tcp", ":8687")
+	if err != nil {
+		log.Fatalln(err)
 	}
 	defer l.Close()
 	for {
 		c, err := l.Accept()
 		if err != nil {
-			log.Fatalln("accpet error...", err)
+			log.Fatalln(err)
 		}
-		go handleConnection(c)
+		go s.handleConnection(c)
 	}
 }
 
-func handleConnection(conn net.Conn) {
-	defer conn.Close()
-	buf := make([]byte, 1024)
+func (s *server) handleConnection(c net.Conn) {
+	msgLenBuf := make([]byte, 4)
 	for {
-		log.Println("prepare to read...")
-		nr, err := conn.Read(buf)
+		_, err := c.Read(msgLenBuf)
+		bytes := make([]byte, binary.LittleEndian.Uint32(msgLenBuf))
+		_, err = io.ReadFull(c, bytes)
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			log.Fatalln("read error...", err)
+			log.Fatalln(err)
 		}
-		log.Println("read n=", nr)
-		log.Println("buf=", string(buf[:nr]))
-		conn.Write(buf[:nr])
+		req := commonReq{}
+		err = json.Unmarshal(bytes, &req)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		switch msgType(req.MsgID) {
+		case MSG_REQUEST_FILE:
+			s.handleRequestFile(c, bytes)
+		default:
+			log.Fatalln("server: error msg type...", req.MsgID)
+		}
+	}
+}
+
+func (s *server) handleRequestFile(c net.Conn, bytes []byte) {
+	req := reqRequestFile{}
+	json.Unmarshal(bytes, &req)
+	fbytes, err := ioutil.ReadFile(req.Path)
+	if err != nil {
+		log.Fatalln(err, ":", req.Path)
+	}
+	_, err = c.Write(fbytes)
+	if err != nil {
+		log.Fatalln(err)
 	}
 }

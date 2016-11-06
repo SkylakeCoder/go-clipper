@@ -7,12 +7,21 @@ import (
 )
 
 type msgType byte
+type OpType byte
+const MAX_BUFF uint32 = 1024 * 1024 * 512
+
+const (
+	OP_NULL OpType = iota
+	OP_SET
+	OP_GET
+)
 
 const (
 	MSG_NULL msgType = iota
 	MSG_REGISTER
 	MSG_SET_CLIPPER_INFO
 	MSG_GET_CLIPPER_INFO
+	MSG_REQUEST_FILE
 )
 
 type commonReq struct {
@@ -34,6 +43,11 @@ type reqGetClipperInfo struct {
 
 type respGetClipperInfo struct {
 	Addr string
+	Path string
+}
+
+type reqRequestFile struct {
+	commonReq
 	Path string
 }
 
@@ -64,6 +78,16 @@ func sendSetClipperInfoReq(c net.Conn, data string) {
 func sendGetClipperInfoReq(c net.Conn) {
 	msg := reqGetClipperInfo{}
 	msg.MsgID = MSG_GET_CLIPPER_INFO
+	bytes, _ := json.Marshal(&msg)
+	c.Write(uintToBytes(len(bytes)))
+	c.Write(bytes)
+}
+
+func sendRequestFileReq(c net.Conn, path string) {
+	msg := reqRequestFile{
+		Path: path,
+	}
+	msg.MsgID = MSG_REQUEST_FILE
 	bytes, _ := json.Marshal(&msg)
 	c.Write(uintToBytes(len(bytes)))
 	c.Write(bytes)
