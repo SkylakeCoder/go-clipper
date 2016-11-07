@@ -17,12 +17,12 @@ func NewClient() *client {
 	return &client{}
 }
 
-func (c *client) StartUp(op OpType, path string) {
-	c.notifyClipperInfo(op, path)
+func (c *client) StartUp(op OpType, path string, masterAddr string) {
+	c.notifyClipperInfo(op, path, masterAddr)
 }
 
-func (c *client) notifyClipperInfo(op OpType, path string) {
-	conn, err := net.Dial("tcp", "localhost:8686")
+func (c *client) notifyClipperInfo(op OpType, path string, masterAddr string) {
+	conn, err := net.Dial("tcp", masterAddr)
 	if err != nil {
 		log.Fatalln(err)
 	}

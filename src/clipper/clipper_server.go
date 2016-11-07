@@ -17,14 +17,14 @@ func NewServer() *server {
 	return &server{}
 }
 
-func (s *server) StartUp() {
-	s.connectToMaster()
+func (s *server) StartUp(masterAddr string) {
+	s.connectToMaster(masterAddr)
 	s.startServe()
 }
 
-func (s *server) connectToMaster() {
+func (s *server) connectToMaster(masterAddr string) {
 	var err error
-	s.connToMaster, err = net.Dial("tcp", ":8686")
+	s.connToMaster, err = net.Dial("tcp", masterAddr)
 	if err != nil {
 		log.Fatalln(err)
 	}
