@@ -7,17 +7,20 @@ import (
 	"os"
 	"encoding/json"
 	"strings"
+	"encoding/binary"
+	"fmt"
 )
 
 type client struct {
-
+	selfPath string
 }
 
 func NewClient() *client {
 	return &client{}
 }
 
-func (c *client) StartUp(op OpType, path string, masterAddr string) {
+func (c *client) StartUp(op OpType, path string, masterAddr string, selfPath string) {
+	c.selfPath = selfPath
 	c.notifyClipperInfo(op, path, masterAddr)
 }
 
@@ -45,7 +48,14 @@ func (c *client) notifyClipperInfo(op OpType, path string, masterAddr string) {
 func (c *client) requestFile(addr string, srcPath string, destPath string) {
 	log.Println("client: destPath=", destPath)
 	split := strings.Split(addr, ":")
-	conn, err := net.Dial("tcp", split[0] + ":8687")
+	path := strings.Replace(c.selfPath, ".exe", "", -1)
+	path = strings.Replace(path, "main_client", "tmp.d", -1)
+	buf_port, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	port := binary.LittleEndian.Uint32(buf_port)
+	conn, err := net.Dial("tcp", split[0] + fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatalln(err)
 	}

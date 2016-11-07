@@ -7,17 +7,21 @@ import (
 	"io"
 	"encoding/json"
 	"io/ioutil"
+	"fmt"
+	"strings"
 )
 
 type server struct {
 	connToMaster net.Conn
+	selfPath string
 }
 
 func NewServer() *server {
 	return &server{}
 }
 
-func (s *server) StartUp(masterAddr string) {
+func (s *server) StartUp(masterAddr string, selfPath string) {
+	s.selfPath = selfPath
 	s.connectToMaster(masterAddr)
 	s.startServe()
 }
@@ -32,7 +36,17 @@ func (s *server) connectToMaster(masterAddr string) {
 }
 
 func (s *server) startServe() {
-	l, err := net.Listen("tcp", ":8687")
+	sendRequestAssignPortReq(s.connToMaster)
+	buf := make([]byte, 1024)
+	nr, _ := s.connToMaster.Read(buf)
+	resp := respAssignPort{}
+	json.Unmarshal(buf[:nr], &resp)
+	buf_port := make([]byte, 4)
+	binary.LittleEndian.PutUint32(buf_port, resp.Port)
+	path := strings.Replace(s.selfPath, ".exe", "", -1)
+	path = strings.Replace(path, "main_server", "tmp.d", -1)
+	ioutil.WriteFile(path, buf_port, 0644)
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", resp.Port))
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -65,6 +79,7 @@ func (s *server) handleConnection(c net.Conn) {
 		switch msgType(req.MsgID) {
 		case MSG_REQUEST_FILE:
 			s.handleRequestFile(c, bytes)
+
 		default:
 			log.Fatalln("server: error msg type...", req.MsgID)
 		}

@@ -22,6 +22,7 @@ const (
 	MSG_SET_CLIPPER_INFO
 	MSG_GET_CLIPPER_INFO
 	MSG_REQUEST_FILE
+	MSG_REQUEST_ASSIGN_PORT
 )
 
 type commonReq struct {
@@ -49,6 +50,14 @@ type respGetClipperInfo struct {
 type reqRequestFile struct {
 	commonReq
 	Path string
+}
+
+type reqAssignPort struct {
+	commonReq
+}
+
+type respAssignPort struct {
+	Port uint32
 }
 
 func uintToBytes(v int) []byte {
@@ -88,6 +97,14 @@ func sendRequestFileReq(c net.Conn, path string) {
 		Path: path,
 	}
 	msg.MsgID = MSG_REQUEST_FILE
+	bytes, _ := json.Marshal(&msg)
+	c.Write(uintToBytes(len(bytes)))
+	c.Write(bytes)
+}
+
+func sendRequestAssignPortReq(c net.Conn) {
+	msg := reqAssignPort{}
+	msg.MsgID = MSG_REQUEST_ASSIGN_PORT
 	bytes, _ := json.Marshal(&msg)
 	c.Write(uintToBytes(len(bytes)))
 	c.Write(bytes)

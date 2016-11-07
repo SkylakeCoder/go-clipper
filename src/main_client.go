@@ -3,6 +3,7 @@ package main
 import (
 	"clipper"
 	"flag"
+	"os"
 )
 
 var opType = flag.Uint("op", 0, "-op")
@@ -13,5 +14,5 @@ func main() {
 	flag.Parse()
 	client := clipper.NewClient()
 	op := clipper.OpType(*opType)
-	client.StartUp(op, *path, *masterAddr)
+	client.StartUp(op, *path, *masterAddr, os.Args[0])
 }

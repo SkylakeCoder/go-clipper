@@ -22,6 +22,8 @@ type master struct {
 	lastCopyConn net.Conn
 	mutex        sync.Mutex
 	info         map[net.Conn]clipperInfo
+	currentPort  uint32
+	portMutex    sync.Mutex
 }
 
 func init() {
@@ -31,6 +33,7 @@ func init() {
 func NewMaster() *master {
 	return &master{
 		info: make(map[net.Conn]clipperInfo),
+		currentPort: 8686,
 	}
 }
 
@@ -65,7 +68,7 @@ func (m *master) handleConnection(c net.Conn) {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		log.Println("master: msgID=", req.MsgID)
+		log.Println("master: msgID=", req.MsgID, " remoteAddr=", c.RemoteAddr())
 		switch msgType(req.MsgID) {
 		case MSG_REGISTER:
 			m.handleMsgRegister(c, bytes)
@@ -73,6 +76,8 @@ func (m *master) handleConnection(c net.Conn) {
 			m.handleMsgSetClipperInfo(c, bytes)
 		case MSG_GET_CLIPPER_INFO:
 			m.handleMsgGetClipperInfo(c, bytes)
+		case MSG_REQUEST_ASSIGN_PORT:
+			m.handleMsgRequestAssignPort(c, bytes)
 		default:
 			log.Fatalln("master: error msg type...", req.MsgID)
 		}
@@ -120,5 +125,16 @@ func (m *master) handleMsgGetClipperInfo(conn net.Conn, bytes []byte) {
 		Path: path,
 		Addr: addr,
 	})
+	conn.Write(respBytes)
+}
+
+func (m *master) handleMsgRequestAssignPort(conn net.Conn, bytes[]byte) {
+	m.portMutex.Lock()
+	m.currentPort++
+	respBytes, _ := json.Marshal(&respAssignPort{
+		Port: m.currentPort,
+	})
+	m.portMutex.Unlock()
+
 	conn.Write(respBytes)
 }
