@@ -13,6 +13,7 @@ import (
 
 type client struct {
 	selfPath string
+	masterAddr string
 }
 
 func NewClient() *client {
@@ -21,10 +22,11 @@ func NewClient() *client {
 
 func (c *client) StartUp(op OpType, path string, masterAddr string, selfPath string) {
 	c.selfPath = selfPath
-	c.notifyClipperInfo(op, path, masterAddr)
+	c.masterAddr = masterAddr
+	c.notifyClipperInfo(op, path)
 }
 
-func (c *client) notifyClipperInfo(op OpType, path string, masterAddr string) {
+func (c *client) notifyClipperInfo(op OpType, path string) {
 	if op == OP_SET {
 		tmpPath := strings.Replace(c.selfPath, ".exe", "", -1)
 		tmpPath = strings.Replace(tmpPath, "main_client", "tmp.d", -1)
@@ -39,7 +41,7 @@ func (c *client) notifyClipperInfo(op OpType, path string, masterAddr string) {
 		}
 		sendSetClipperInfoReq(conn, path, 0)
 	} else {
-		conn, err := net.Dial("tcp", masterAddr)
+		conn, err := net.Dial("tcp", c.masterAddr)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -58,7 +60,14 @@ func (c *client) notifyClipperInfo(op OpType, path string, masterAddr string) {
 
 func (c *client) requestFile(addr string, srcPath string, destPath string) {
 	log.Println("client: destPath=", destPath)
-	conn, err := net.Dial("tcp", addr)
+	fixedAddr := addr
+	if strings.Contains(addr, "127.0.0.1") {
+		split := strings.Split(addr, ":")
+		serverPort := split[1]
+		split = strings.Split(c.masterAddr, ":")
+		fixedAddr = split[0] + ":" + serverPort
+	}
+	conn, err := net.Dial("tcp", fixedAddr)
 	if err != nil {
 		log.Fatalln(err)
 	}

@@ -8,7 +8,7 @@ import (
 
 type msgType byte
 type OpType byte
-const MAX_BUFF uint32 = 1024 * 1024 * 512
+const MAX_BUFF uint32 = 1024 * 1024 * 2
 
 const (
 	OP_NULL OpType = iota
