@@ -83,7 +83,12 @@ func (c *client) requestFile(addr string, srcPath string, destPath string) {
 		defer f.Close()
 	}
 	fi, fierr := f.Stat()
-	ps := string(os.PathSeparator)
+	var ps string
+	if strings.Contains(srcPath, "/") {
+		ps = "/"
+	} else {
+		ps = "\\"
+	}
 	split := strings.Split(srcPath, ps)
 	fileName := split[len(split) - 1]
 	if ferr == nil && fierr == nil && fi.IsDir() {
@@ -94,7 +99,7 @@ func (c *client) requestFile(addr string, srcPath string, destPath string) {
 		for i := 0; i < len(split) - 1; i++ {
 			path += split[i] + ps
 		}
-		destPath = path + ps + fileName
+		destPath = path + fileName
 	}
 	log.Println("client: destPath=", destPath)
 	ioutil.WriteFile(destPath, buf[:nr], 0644)
