@@ -69,7 +69,7 @@ func (s *server) handleConnection(c net.Conn) {
 		bytes := make([]byte, binary.LittleEndian.Uint32(msgLenBuf))
 		_, err = io.ReadFull(c, bytes)
 		if err != nil {
-			log.Fatalln(err)
+			break
 		}
 		req := commonReq{}
 		err = json.Unmarshal(bytes, &req)
