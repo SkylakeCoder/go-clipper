@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 	"encoding/json"
+	"strings"
+	"fmt"
 )
 
 var _startTime time.Time
@@ -15,6 +17,7 @@ var _startTime time.Time
 type clipperInfo struct {
 	path string
 	time float64
+	port uint32
 }
 
 type master struct {
@@ -106,24 +109,27 @@ func (m *master) handleMsgSetClipperInfo(c net.Conn, bytes []byte) {
 	m.info[c] = clipperInfo{
 		path: req.Data,
 		time: time.Since(_startTime).Seconds(),
+		port: req.Port,
 	}
 	m.mutex.Unlock()
 }
 
 func (m *master) handleMsgGetClipperInfo(conn net.Conn, bytes []byte) {
 	var tempTime float64
-	path := ""
 	addr := ""
+	var info clipperInfo
 	for c, v := range m.info {
 		if v.time > tempTime {
 			tempTime = v.time
-			path = v.path
 			addr = c.RemoteAddr().String()
+			info = v
 		}
 	}
+	split := strings.Split(addr, ":")
+	fixedAddr := fmt.Sprintf("%s:%d", split[0], info.port)
 	respBytes, _ := json.Marshal(&respGetClipperInfo{
-		Path: path,
-		Addr: addr,
+		Path: info.path,
+		Addr: fixedAddr,
 	})
 	conn.Write(respBytes)
 }

@@ -14,6 +14,7 @@ import (
 type server struct {
 	connToMaster net.Conn
 	selfPath string
+	port uint32
 }
 
 func NewServer() *server {
@@ -41,6 +42,7 @@ func (s *server) startServe() {
 	nr, _ := s.connToMaster.Read(buf)
 	resp := respAssignPort{}
 	json.Unmarshal(buf[:nr], &resp)
+	s.port = resp.Port
 	buf_port := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf_port, resp.Port)
 	path := strings.Replace(s.selfPath, ".exe", "", -1)
@@ -66,9 +68,7 @@ func (s *server) handleConnection(c net.Conn) {
 		_, err := c.Read(msgLenBuf)
 		bytes := make([]byte, binary.LittleEndian.Uint32(msgLenBuf))
 		_, err = io.ReadFull(c, bytes)
-		if err == io.EOF {
-			break
-		} else if err != nil {
+		if err != nil {
 			log.Fatalln(err)
 		}
 		req := commonReq{}
@@ -76,14 +76,22 @@ func (s *server) handleConnection(c net.Conn) {
 		if err != nil {
 			log.Fatalln(err)
 		}
+		log.Println("master: msgID=", req.MsgID, " remoteAddr=", c.RemoteAddr())
 		switch msgType(req.MsgID) {
+		case MSG_SET_CLIPPER_INFO:
+			s.handleSetClipperInfoReq(c, bytes)
 		case MSG_REQUEST_FILE:
 			s.handleRequestFile(c, bytes)
-
 		default:
 			log.Fatalln("server: error msg type...", req.MsgID)
 		}
 	}
+}
+
+func (s *server) handleSetClipperInfoReq(c net.Conn, bytes []byte) {
+	req := reqSetClipperInfo{}
+	json.Unmarshal(bytes, &req)
+	sendSetClipperInfoReq(s.connToMaster, req.Data, s.port)
 }
 
 func (s *server) handleRequestFile(c net.Conn, bytes []byte) {

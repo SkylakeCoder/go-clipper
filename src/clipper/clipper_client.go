@@ -25,13 +25,24 @@ func (c *client) StartUp(op OpType, path string, masterAddr string, selfPath str
 }
 
 func (c *client) notifyClipperInfo(op OpType, path string, masterAddr string) {
-	conn, err := net.Dial("tcp", masterAddr)
-	if err != nil {
-		log.Fatalln(err)
-	}
 	if op == OP_SET {
-		sendSetClipperInfoReq(conn, path)
+		tmpPath := strings.Replace(c.selfPath, ".exe", "", -1)
+		tmpPath = strings.Replace(tmpPath, "main_client", "tmp.d", -1)
+		buf_port, err := ioutil.ReadFile(tmpPath)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		port := binary.LittleEndian.Uint32(buf_port)
+		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+		if err != nil {
+			log.Fatalln(err)
+		}
+		sendSetClipperInfoReq(conn, path, 0)
 	} else {
+		conn, err := net.Dial("tcp", masterAddr)
+		if err != nil {
+			log.Fatalln(err)
+		}
 		sendGetClipperInfoReq(conn)
 		buf := make([]byte, 1024)
 		nr, err := conn.Read(buf)
@@ -47,15 +58,7 @@ func (c *client) notifyClipperInfo(op OpType, path string, masterAddr string) {
 
 func (c *client) requestFile(addr string, srcPath string, destPath string) {
 	log.Println("client: destPath=", destPath)
-	split := strings.Split(addr, ":")
-	path := strings.Replace(c.selfPath, ".exe", "", -1)
-	path = strings.Replace(path, "main_client", "tmp.d", -1)
-	buf_port, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	port := binary.LittleEndian.Uint32(buf_port)
-	conn, err := net.Dial("tcp", split[0] + fmt.Sprintf(":%d", port))
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -71,17 +74,18 @@ func (c *client) requestFile(addr string, srcPath string, destPath string) {
 		defer f.Close()
 	}
 	fi, fierr := f.Stat()
-	split = strings.Split(srcPath, "/")
+	ps := string(os.PathSeparator)
+	split := strings.Split(srcPath, ps)
 	fileName := split[len(split) - 1]
 	if ferr == nil && fierr == nil && fi.IsDir() {
-		destPath += "/" + fileName
+		destPath += ps + fileName
 	} else {
-		split = strings.Split(destPath, "/")
+		split = strings.Split(destPath, ps)
 		path := ""
 		for i := 0; i < len(split) - 1; i++ {
-			path += split[i] + "/"
+			path += split[i] + ps
 		}
-		destPath = path + "/" + fileName
+		destPath = path + ps + fileName
 	}
 	log.Println("client: destPath=", destPath)
 	ioutil.WriteFile(destPath, buf[:nr], 0644)

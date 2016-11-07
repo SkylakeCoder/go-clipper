@@ -36,6 +36,7 @@ type reqRegister struct {
 type reqSetClipperInfo struct {
 	commonReq
 	Data string
+	Port uint32
 }
 
 type reqGetClipperInfo struct {
@@ -74,9 +75,10 @@ func sendRegisterReq(c net.Conn) {
 	c.Write(bytes)
 }
 
-func sendSetClipperInfoReq(c net.Conn, data string) {
+func sendSetClipperInfoReq(c net.Conn, data string, port uint32) {
 	msg := reqSetClipperInfo{
 		Data: data,
+		Port: port,
 	}
 	msg.MsgID = MSG_SET_CLIPPER_INFO
 	bytes, _ := json.Marshal(&msg)
