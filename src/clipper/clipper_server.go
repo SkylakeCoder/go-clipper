@@ -101,6 +101,8 @@ func (s *server) handleRequestFile(c net.Conn, bytes []byte) {
 	if err != nil {
 		log.Fatalln(err, ":", req.Path)
 	}
+	blen := uintToBytes(len(fbytes))
+	_, err = c.Write(blen)
 	_, err = c.Write(fbytes)
 	if err != nil {
 		log.Fatalln(err)

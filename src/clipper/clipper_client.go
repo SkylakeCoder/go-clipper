@@ -9,6 +9,7 @@ import (
 	"strings"
 	"encoding/binary"
 	"fmt"
+	"io"
 )
 
 type client struct {
@@ -72,8 +73,11 @@ func (c *client) requestFile(addr string, srcPath string, destPath string) {
 		log.Fatalln(err)
 	}
 	sendRequestFileReq(conn, srcPath)
-	buf := make([]byte, MAX_BUFF)
-	nr, err := conn.Read(buf)
+	bufLen := make([]byte, 4)
+	io.ReadFull(conn, bufLen)
+	l := binary.LittleEndian.Uint32(bufLen)
+	buf := make([]byte, l)
+	nr, err := io.ReadFull(conn, buf)
 	if err != nil {
 		log.Fatalln(err)
 	}
