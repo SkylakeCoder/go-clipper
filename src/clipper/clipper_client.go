@@ -59,8 +59,39 @@ func (c *client) notifyClipperInfo(op OpType, path string) {
 	}
 }
 
+func (c *client) getSavePath(srcPath string, destPath string) string {
+	f, ferr := os.Open(destPath)
+	if ferr == nil {
+		defer f.Close()
+	}
+	fi, fierr := f.Stat()
+	var srcPS, destPS string
+	if strings.Contains(srcPath, "/") {
+		srcPS = "/"
+	} else {
+		srcPS = "\\"
+	}
+	if strings.Contains(destPath, "/") {
+		destPS = "/"
+	} else {
+		destPS = "\\"
+	}
+	split := strings.Split(srcPath, srcPS)
+	fileName := split[len(split) - 1]
+	if ferr == nil && fierr == nil && fi.IsDir() {
+		destPath += destPS + fileName
+	} else {
+		split = strings.Split(destPath, destPS)
+		path := ""
+		for i := 0; i < len(split) - 1; i++ {
+			path += split[i] + destPS
+		}
+		destPath = path + fileName
+	}
+	return destPath
+}
+
 func (c *client) requestFile(addr string, srcPath string, destPath string) {
-	log.Println("client: destPath=", destPath)
 	fixedAddr := addr
 	if strings.Contains(addr, "127.0.0.1") {
 		split := strings.Split(addr, ":")
@@ -73,38 +104,40 @@ func (c *client) requestFile(addr string, srcPath string, destPath string) {
 		log.Fatalln(err)
 	}
 	sendRequestFileReq(conn, srcPath)
-	bufLen := make([]byte, 4)
-	io.ReadFull(conn, bufLen)
-	l := binary.LittleEndian.Uint32(bufLen)
-	buf := make([]byte, l)
-	nr, err := io.ReadFull(conn, buf)
+	bufSize := make([]byte, 8)
+	_, err = io.ReadFull(conn, bufSize)
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	f, ferr := os.Open(destPath)
-	if ferr == nil {
-		defer f.Close()
+	fileSize := binary.LittleEndian.Uint64(bufSize)
+	var currSize uint64 = 0
+	savePath := c.getSavePath(srcPath, destPath)
+	dummySavePath := savePath + ".tmp"
+	f, err := os.Create(dummySavePath)
+	if err != nil {
+		log.Fatalln(err)
 	}
-	fi, fierr := f.Stat()
-	var ps string
-	if strings.Contains(srcPath, "/") {
-		ps = "/"
-	} else {
-		ps = "\\"
-	}
-	split := strings.Split(srcPath, ps)
-	fileName := split[len(split) - 1]
-	if ferr == nil && fierr == nil && fi.IsDir() {
-		destPath += ps + fileName
-	} else {
-		split = strings.Split(destPath, ps)
-		path := ""
-		for i := 0; i < len(split) - 1; i++ {
-			path += split[i] + ps
+	for {
+		bufLen := make([]byte, 4)
+		io.ReadFull(conn, bufLen)
+		l := binary.LittleEndian.Uint32(bufLen)
+		buf := make([]byte, l)
+		nr, err := io.ReadFull(conn, buf)
+		if err != nil && err != io.ErrUnexpectedEOF {
+			break
 		}
-		destPath = path + fileName
+		_, err = f.Write(buf[:nr])
+		if (err != nil) {
+			log.Fatalln(err)
+		}
+		currSize += uint64(nr)
+		if currSize >= fileSize {
+			break
+		}
 	}
-	log.Println("client: destPath=", destPath)
-	ioutil.WriteFile(destPath, buf[:nr], 0644)
+	f.Close()
+	err = os.Rename(dummySavePath, savePath)
+	if err != nil {
+		log.Fatalln(err)
+	}
 }

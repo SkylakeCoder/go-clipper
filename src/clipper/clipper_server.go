@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"fmt"
 	"strings"
+	"os"
 )
 
 type server struct {
@@ -91,20 +92,34 @@ func (s *server) handleConnection(c net.Conn) {
 func (s *server) handleSetClipperInfoReq(c net.Conn, bytes []byte) {
 	req := reqSetClipperInfo{}
 	json.Unmarshal(bytes, &req)
+	req.Data = strings.TrimSuffix(req.Data, "\n")
 	sendSetClipperInfoReq(s.connToMaster, req.Data, s.port)
 }
 
 func (s *server) handleRequestFile(c net.Conn, bytes []byte) {
 	req := reqRequestFile{}
 	json.Unmarshal(bytes, &req)
-	fbytes, err := ioutil.ReadFile(req.Path)
-	if err != nil {
-		log.Fatalln(err, ":", req.Path)
-	}
-	blen := uintToBytes(len(fbytes))
-	_, err = c.Write(blen)
-	_, err = c.Write(fbytes)
+	f, err := os.Open(req.Path)
 	if err != nil {
 		log.Fatalln(err)
+	}
+	defer f.Close()
+
+	fs, _ := f.Stat()
+	bufSize := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bufSize, uint64(fs.Size()))
+	c.Write(bufSize)
+	buf := make([]byte, MAX_BUFF)
+	for {
+		nr, err := io.ReadFull(f, buf)
+		if err != nil && err != io.ErrUnexpectedEOF {
+			break
+		}
+		blen := uintToBytes(nr)
+		_, err = c.Write(blen)
+		_, err = c.Write(buf[:nr])
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 }
