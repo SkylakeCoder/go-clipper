@@ -58,12 +58,13 @@ func (m *master) StartUp() {
 func (m *master) handleConnection(c net.Conn) {
 	msgLenBuf := make([]byte, 4)
 	for {
-		_, err := c.Read(msgLenBuf)
+		_, err := io.ReadFull(c, msgLenBuf)
+		if err != nil {
+			log.Fatalln(err)
+		}
 		bytes := make([]byte, binary.LittleEndian.Uint32(msgLenBuf))
 		_, err = io.ReadFull(c, bytes)
-		if err == io.EOF {
-			break
-		} else if err != nil {
+		if err != nil {
 			log.Fatalln(err)
 		}
 		req := commonReq{}
