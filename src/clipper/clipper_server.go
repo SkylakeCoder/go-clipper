@@ -68,19 +68,19 @@ func (s *server) handleConnection(c net.Conn) {
 	for {
 		_, err := io.ReadFull(c, msgLenBuf)
 		if err != nil {
-			log.Fatalln(err)
+			break
 		}
 		bytes := make([]byte, binary.LittleEndian.Uint32(msgLenBuf))
 		_, err = io.ReadFull(c, bytes)
 		if err != nil {
-			log.Fatalln(err)
+			break
 		}
 		req := commonReq{}
 		err = json.Unmarshal(bytes, &req)
 		if err != nil {
 			log.Fatalln(err)
 		}
-		log.Println("master: msgID=", req.MsgID, " remoteAddr=", c.RemoteAddr())
+		log.Println("server: msgID=", req.MsgID, " remoteAddr=", c.RemoteAddr())
 		switch msgType(req.MsgID) {
 		case MSG_SET_CLIPPER_INFO:
 			s.handleSetClipperInfoReq(c, bytes)
