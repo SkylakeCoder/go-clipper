@@ -68,17 +68,20 @@ func (s *server) handleConnection(c net.Conn) {
 	for {
 		_, err := io.ReadFull(c, msgLenBuf)
 		if err != nil {
+			log.Println(err)
 			break
 		}
 		bytes := make([]byte, binary.LittleEndian.Uint32(msgLenBuf))
 		_, err = io.ReadFull(c, bytes)
 		if err != nil {
+			log.Println(err)
 			break
 		}
 		req := commonReq{}
 		err = json.Unmarshal(bytes, &req)
 		if err != nil {
-			log.Fatalln(err)
+			log.Println(err)
+			break
 		}
 		log.Println("server: msgID=", req.MsgID, " remoteAddr=", c.RemoteAddr())
 		switch msgType(req.MsgID) {
@@ -87,7 +90,7 @@ func (s *server) handleConnection(c net.Conn) {
 		case MSG_REQUEST_FILE:
 			s.handleRequestFile(c, bytes)
 		default:
-			log.Fatalln("server: error msg type...", req.MsgID)
+			log.Println("server: error msg type...", req.MsgID)
 		}
 	}
 }

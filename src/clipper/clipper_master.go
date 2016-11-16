@@ -60,17 +60,20 @@ func (m *master) handleConnection(c net.Conn) {
 	for {
 		_, err := io.ReadFull(c, msgLenBuf)
 		if err != nil {
-			log.Fatalln(err)
+			log.Println(err)
+			break
 		}
 		bytes := make([]byte, binary.LittleEndian.Uint32(msgLenBuf))
 		_, err = io.ReadFull(c, bytes)
 		if err != nil {
-			log.Fatalln(err)
+			log.Println(err)
+			break
 		}
 		req := commonReq{}
 		err = json.Unmarshal(bytes, &req)
 		if err != nil {
-			log.Fatalln(err)
+			log.Println(err)
+			break
 		}
 		log.Println("master: msgID=", req.MsgID, " remoteAddr=", c.RemoteAddr())
 		switch msgType(req.MsgID) {
